@@ -7,33 +7,30 @@ Aurèle Boussard
 """
 
 
-from multiprocessing import Queue, Process, Manager
-from numpy import (
-    savetxt, max, all, any, pi, min, round, mean, diff, square,
-    zeros, array, arange, ones_like, isin, repeat, uint8,
-    uint64, int64, save, nonzero, max, stack, uint32,
-    c_, ceil, empty, float32, expand_dims, cumsum)
+from multiprocessing import Queue, Process
 from pandas import DataFrame as df
 import time
 import os
-import csv
+from pathlib import Path
 
 """
 1. Set variables and function.
 ELEMENT_NUMBER is the total number of loop to do.
 CORE_NUMBER is the number of core to allocate to this task. Putting maximum may lead to freezing
 VARIABLES is a dictionary containing all element any iteration of the function_to_parallelize need to run.
+FINAL_RESULT_NAME is a path toward the file to save all result of the iterations
 """
 
 ELEMENT_NUMBER = 200
 CORE_NUMBER = os.cpu_count() - 1
 VARIABLES = {i: f"{i}" for i in range(ELEMENT_NUMBER)}
+FINAL_RESULT_NAME = Path(os.getcwd()) / "final_result.csv"
 
 """
 2. Import the function to parallelize
-
+a. This function must accept the iteration current value "i" and a dictionary containing all necessary variables.
+b. This function must produce a resulting dictionary containing the iteration current value "i" and a vector of results.
 """
-
 
 def function_to_parallelize(i, variables):
     print(i)
@@ -41,6 +38,12 @@ def function_to_parallelize(i, variables):
     result = variables[i]
     return {i: result}
 
+
+"""
+3. Unchanged functions.
+Except if you want to change the nature of the inputs and the outputs of the function_to_parallelize, 
+dot not change the following.
+"""
 
 def prepare_parallelization(ELEMENT_NUMBER, CORE_NUMBER):
     fair_core_workload = ELEMENT_NUMBER // CORE_NUMBER
@@ -68,7 +71,7 @@ def one_core_workload(lower_bound: int, upper_bound: int, VARIABLES: dict, subto
     subtotals.put(grouped_results)
 
 
-def parallelization(VARIABLES, EXTENTS_OF_SUBRANGES, PROCESSES, subtotals):
+def parallelization(VARIABLES, FINAL_RESULT_NAME, EXTENTS_OF_SUBRANGES, PROCESSES, subtotals):
     for extent in EXTENTS_OF_SUBRANGES:
         p = Process(target=one_core_workload, args=(extent[0], extent[1], VARIABLES, subtotals))
         p.start()
@@ -86,11 +89,17 @@ def parallelization(VARIABLES, EXTENTS_OF_SUBRANGES, PROCESSES, subtotals):
             current_key = list(results_i.keys())[0]
             final_results[current_key] = results_i[current_key]
     final_results = df.from_dict(final_results, orient='index')
-    final_results.to_csv("final_result.csv")
+    final_results.to_csv(FINAL_RESULT_NAME)
+
+
+"""
+4. Run the loop in parallel.
+It will write the result at the FINAL_RESULT_NAME location.
+The bloc "if __name__ == '__main__':" is necessary.
+"""
 
 
 if __name__ == '__main__':
     EXTENTS_OF_SUBRANGES, PROCESSES, subtotals = prepare_parallelization(ELEMENT_NUMBER, CORE_NUMBER)
-    parallelization(VARIABLES, EXTENTS_OF_SUBRANGES, PROCESSES, subtotals)
-    # save_results(subtotals)
+    parallelization(VARIABLES, FINAL_RESULT_NAME, EXTENTS_OF_SUBRANGES, PROCESSES, subtotals)
 
