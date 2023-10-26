@@ -1,0 +1,9 @@
+# Ignore the .idea directory
+.idea/
+*
+!.gitignore
+!requirements.txt
+!LICENSE.odt
+!README.md
+!/src/
+!/src/core/
